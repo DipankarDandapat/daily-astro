@@ -1,0 +1,9 @@
+<resources>
+    <style name="Theme.DailyAstro" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:colorAccent">#0B4FA8</item>
+        <item name="android:navigationBarColor">#F7F9FC</item>
+        <item name="android:statusBarColor">#082E76</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>

@@ -1,0 +1,2 @@
+# Run at 00:10 server time every day. Replace paths and secret handling for production.
+10 0 * * * DAILY_ASTRO_ADMIN_KEY='replace-me' /absolute/path/to/daily-astro/backend/scripts/ingest_daily.sh >> /var/log/daily-astro-ingest.log 2>&1
