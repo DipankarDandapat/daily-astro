@@ -1,8 +1,14 @@
 backend/.venv/
-backend/__pycache__/
+__pycache__/
 backend/.pytest_cache/
+backend/*.db
+backend/*.db-shm
+backend/*.db-wal
+backend/logs/
 *.iml
 .gradle/
+.kotlin/
 build/
 local.properties
 .idea/
+.DS_Store
