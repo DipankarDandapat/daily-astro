@@ -1,43 +1,68 @@
 package com.dailyastro.app
 
+import android.Manifest
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.grid.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.res.painterResource
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.dailyastro.app.data.*
-import com.dailyastro.app.model.*
+import com.dailyastro.app.ui.*
+import kotlinx.coroutines.delay
 
-private val Navy = Color(0xFF082E76); private val Blue = Color(0xFF0B4FA8); private val Pale = Color(0xFFF7F9FC); private val Ink = Color(0xFF16213F); private val Gold = Color(0xFFF5B642)
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        enableEdgeToEdge(statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT))
+        setContent { DailyAstroApp(this) }
+    }
+}
 
-class MainActivity : ComponentActivity() { override fun onCreate(savedInstanceState: Bundle?) { super.onCreate(savedInstanceState); setContent { DailyAstroApp() } } }
+@Composable
+fun DailyAstroApp(activity: ComponentActivity, vm: AstroViewModel = viewModel()) {
+    val s by vm.state.collectAsStateWithLifecycle()
+    val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
+    val requestNotifications = { if (Build.VERSION.SDK_INT >= 33) permission.launch(Manifest.permission.POST_NOTIFICATIONS) }
+    LaunchedEffect(s.screen) { if (s.screen == Screen.Main && s.settings.notifEnabled) requestNotifications() }
+    AstroTheme(s.settings.theme, s.settings.largeText, s.settings.language) {
+        Box(Modifier.fillMaxSize().background(LocalAstro.current.bg)) {
+            if (s.ready) when (s.screen) {
+                Screen.Welcome -> WelcomeScreen(s, vm)
+                Screen.Language -> LanguageScreen(s, vm)
+                Screen.Sign -> SignScreen(s, vm)
+                Screen.Main -> MainScreen(s, vm, activity)
+            }
+            SheetHost(s, vm, requestNotifications)
+            Toast(s.message, vm::consumeMessage, Modifier.align(Alignment.BottomCenter))
+        }
+    }
+}
 
-@Composable fun DailyAstroApp(vm: AstroViewModel = viewModel()) { val state by vm.state.collectAsState(); MaterialTheme(colorScheme = lightColorScheme(primary = Blue, background = Pale)) { Surface(Modifier.fillMaxSize(), color = Pale) { when (state.screen) { Screen.Welcome -> Welcome(state, vm); Screen.Language -> LanguagePicker(state, vm); Screen.Sign -> SignPicker(state, vm); Screen.Horoscope -> HoroscopeScreen(state) } } } }
-
-@Composable private fun Header(title: String, onBack: (() -> Unit)? = null) { Row(Modifier.fillMaxWidth().padding(20.dp), verticalAlignment = Alignment.CenterVertically) { if (onBack != null) Icon(Icons.Default.ArrowBack, "Back", Modifier.clickable { onBack() }); Spacer(Modifier.width(12.dp)); Text(title, color = Color.White, fontSize = 21.sp, fontWeight = FontWeight.SemiBold) } }
-@Composable private fun Welcome(s: AstroState, vm: AstroViewModel) { Column(Modifier.fillMaxSize().background(Navy).padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) { Spacer(Modifier.height(24.dp)); Image(painterResource(com.dailyastro.app.R.drawable.daily_astro_zodiac_wheel), "Daily Astro zodiac wheel", Modifier.size(176.dp)); Text("Daily Astro", color = Color.White, fontSize = 34.sp, fontWeight = FontWeight.Bold); Text("Your day, written in the stars", color = Color(0xFFD6E5FF)); Spacer(Modifier.weight(1f)); Card(shape = RoundedCornerShape(28.dp), colors = CardDefaults.cardColors(Color.White), modifier = Modifier.fillMaxWidth()) { Column(Modifier.padding(24.dp)) { Text("Welcome to Daily Astro", color = Ink, fontSize = 20.sp, fontWeight = FontWeight.Bold); Text("Personalized horoscopes, insights and cosmic guidance in your language.", color = Color.Gray, modifier = Modifier.padding(top = 8.dp)); Text("What should we call you?", color = Ink, fontWeight = FontWeight.Medium, modifier = Modifier.padding(top = 28.dp, bottom = 8.dp)); OutlinedTextField(s.name, vm::setName, singleLine = true, placeholder = { Text("Enter your name") }, modifier = Modifier.fillMaxWidth()); Button({ vm.begin() }, enabled = s.name.isNotBlank(), modifier = Modifier.fillMaxWidth().padding(top = 18.dp), shape = RoundedCornerShape(12.dp)) { Text("Get Started  →") } } }; Text("♢  Your data is safe and private", color = Color.White, fontSize = 12.sp, modifier = Modifier.padding(18.dp)) } }
-
-@Composable private fun LanguagePicker(s: AstroState, vm: AstroViewModel) { Column(Modifier.fillMaxSize().background(Navy)) { Header("Choose your language"); Text("Pick a language you're most comfortable with", color = Color.White, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)); Card(shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp), modifier = Modifier.fillMaxSize().padding(top = 24.dp), colors = CardDefaults.cardColors(Color.White)) { Column(Modifier.padding(20.dp)) { val langs = listOf(Language("en","English","English"),Language("hi","Hindi","हिन्दी"),Language("bn","Bengali","বাংলা"),Language("te","Telugu","తెలుగు"),Language("mr","Marathi","मराठी"),Language("ta","Tamil","தமிழ்"),Language("gu","Gujarati","ગુજરાતી"),Language("kn","Kannada","ಕನ್ನಡ"),Language("ml","Malayalam","മലയാളം"),Language("pa","Punjabi","ਪੰਜਾਬੀ")); LazyVerticalGrid(GridCells.Fixed(2), verticalArrangement = Arrangement.spacedBy(10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.weight(1f)) { items(langs) { lang -> Card(Modifier.fillMaxWidth().clickable { vm.chooseLanguage(lang) }, shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(Color(0xFFF9FAFD))) { Column(Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) { Text("✦", color = Blue, fontSize = 24.sp); Text(lang.name, color = Ink, fontWeight = FontWeight.Medium); Text(lang.native_name, color = Color.Gray) } } } }; Text("Select a language to continue", color = Color.Gray, modifier = Modifier.align(Alignment.CenterHorizontally).padding(12.dp)) } } } }
-
-@Composable private fun SignPicker(s: AstroState, vm: AstroViewModel) { Column(Modifier.fillMaxSize().background(Navy)) { Header("Pick your sun sign"); Text("Find insights personalized for your sign", color = Color.White, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center); Card(shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp), modifier = Modifier.fillMaxSize().padding(top = 22.dp), colors = CardDefaults.cardColors(Color.White)) { LazyVerticalGrid(GridCells.Fixed(3), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(18.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) { items(s.signs) { sign -> Column(Modifier.clickable { vm.chooseSign(sign) }, horizontalAlignment = Alignment.CenterHorizontally) { Text(sign.symbol, color = Blue, fontSize = 40.sp); Text(sign.name, color = Ink, fontWeight = FontWeight.Medium); Text(sign.date_range, color = Color.Gray, fontSize = 10.sp) } } } } } }
-
-@Composable private fun HoroscopeScreen(s: AstroState) { val h = s.horoscope; Column(Modifier.fillMaxSize().background(Pale).verticalScroll(rememberScrollState())) { Row(Modifier.fillMaxWidth().background(Navy).padding(18.dp), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Default.Home, "Home", tint = Color.White); Text("  Horoscope (${h?.date ?: "Today"})", color = Color.White, fontWeight = FontWeight.SemiBold); Spacer(Modifier.weight(1f)); Icon(Icons.Default.Share, "Share", tint = Color.White) }; Column(Modifier.padding(18.dp)) { Card(colors = CardDefaults.cardColors(Color.White), shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) { Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically) { Text(h?.sign?.symbol ?: "♈", color = Blue, fontSize = 54.sp); Column(Modifier.padding(start = 14.dp)) { Text(h?.sign?.name ?: "Aries", color = Ink, fontWeight = FontWeight.Bold, fontSize = 21.sp); Text(h?.sign?.date_range ?: "Mar 21 - Apr 19", color = Color.Gray); Text(h?.summary ?: "Your horoscope is loading...", color = Ink, modifier = Modifier.padding(top = 10.dp)) } } }; Spacer(Modifier.height(14.dp)); Card(colors = CardDefaults.cardColors(Blue), shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) { Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically) { Column(Modifier.weight(1f)) { Text("Special Advice For Today", color = Color.White, fontWeight = FontWeight.Bold); Text(h?.special_advice ?: "Focus on self-reflection and communication today.", color = Color.White, modifier = Modifier.padding(top = 6.dp)) }; Text("☾", color = Gold, fontSize = 42.sp) } }; Spacer(Modifier.height(10.dp)); h?.categories?.forEach { category -> Card(colors = CardDefaults.cardColors(Color.White), shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) { Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) { Text(if (category.key == "lucky") "☘" else "♡", color = Blue, fontSize = 21.sp); Text(category.title, color = Ink, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 10.dp)); Spacer(Modifier.weight(1f)); Icon(Icons.Default.ChevronRight, "Open", tint = Color.Gray) } } } } } }
+@Composable
+private fun Toast(message: Int?, onDone: () -> Unit, modifier: Modifier) {
+    LaunchedEffect(message) { if (message != null) { delay(1800); onDone() } }
+    AnimatedVisibility(message != null, modifier.padding(bottom = 96.dp), enter = fadeIn(), exit = fadeOut()) {
+        var last by remember { mutableStateOf(message) }
+        if (message != null) last = message
+        last?.let { T(stringResource(it), 12.5.sp, Color.White, modifier = Modifier.clip(RoundedCornerShape(20.dp)).background(Color(0xFF111111)).padding(horizontal = 16.dp, vertical = 9.dp)) }
+    }
+}
